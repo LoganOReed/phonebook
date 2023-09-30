@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import reactLogo from './assets/react.svg'
 import viteLogo from '/vite.svg'
 import './App.css'
-import axios from 'axios'
+import personsService from './services/persons'
 
 function Filter({ filter, setFilter }) {
   return (
@@ -51,11 +51,9 @@ function App() {
   const [filter, setFilter] = useState('')
 
   useEffect(() => {
-    console.log('effect')
-    axios
-      .get('http://localhost:3001/persons')
+    personsService
+      .getAll()
       .then(response => {
-        console.log('promise fulfilled')
         setPersons(response.data)
       })
   }, [])
@@ -68,8 +66,8 @@ function App() {
       alert(`${newName} is already added to phonebook`)
     }
     else {
-      axios
-        .post('http://localhost:3001/persons', { name: newName, number: newNumber })
+      personsService
+        .create({ name: newName, number: newNumber })
         .then(response => {
           setPersons(persons.concat(response.data))
           setNewName('')
