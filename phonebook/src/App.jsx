@@ -29,15 +29,18 @@ function ContactForm({ newName, setNewName, newNumber, setNewNumber, addNewConta
   )
 }
 
-function ContactList({ persons, filter }) {
+function ContactList({ persons, filter, removeContact }) {
   return (
     <div>
       {
         persons.filter(obj => Object.values(obj).some(val => val.toString().toLowerCase().includes(filter.toLowerCase())))
           .map(person =>
-            <p key={person.name}>
+          <div key={person.name}>
+            <p>
               {person.name} :: {person.number}
             </p>
+            <button value={person.id} onClick={removeContact}>delete</button>
+            </div>
           )}
     </div>
   )
@@ -75,6 +78,17 @@ function App() {
         })
     }
   }
+
+  const removeContact = (e) => {
+    if(window.confirm('Do you want to delete this contact?')){
+      personsService
+        .remove(e.target.value)
+        .then( _ => {
+          setPersons(persons.filter(item => item.id.toString() !== e.target.value))
+        })
+    }
+  }
+
   return (
     <>
       <div>
@@ -83,7 +97,7 @@ function App() {
         <ContactForm
           newName={newName} setNewName={setNewName} newNumber={newNumber} setNewNumber={setNewNumber} addNewContact={addNewContact} />
         <h2>Numbers</h2>
-        <ContactList persons={persons} filter={filter} />
+        <ContactList persons={persons} filter={filter} removeContact={removeContact} />
       </div>
     </>
   )
