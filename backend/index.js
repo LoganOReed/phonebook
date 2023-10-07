@@ -1,38 +1,14 @@
 const express = require('express')
 const cors = require('cors')
 const morgan = require('morgan')
-const mongoose = require('mongoose')
 const app = express()
-const argc = process.argv.length
-
-// TODO: Use a better password system
-const url =
-  `mongodb+srv://orlogan7:${process.env.MONGODB_PW}@phonebookcluster.h99m6cj.mongodb.net/phonebookApp?retryWrites=true&w=majority&appName=AtlasApp`
-
-mongoose.set('strictQuery',false)
-mongoose.connect(url)
-
-const personSchema = new mongoose.Schema({
-  name: String,
-  number: String,
-})
-
-personSchema.set('toJSON', {
-  transform: (document, returnedObject) => {
-    returnedObject.id = returnedObject._id.toString()
-    delete returnedObject._id
-    delete returnedObject.__v
-  }
-})
-
-const Person = mongoose.model('Person', personSchema)
+const Person = require('./models/person')
 
 
 
-
+app.use(express.static('dist'))
 app.use(express.json())
 app.use(cors())
-app.use(express.static('dist'))
 // For cli logging
 app.use(morgan((tokens, req, res) => {
     return [
@@ -55,51 +31,61 @@ app.get('/api/persons', (request, response) => {
   })
 })
 
-app.get('/api/persons/:id', (request, response) => {
-  const id = Number(request.params.id)
-  const person = persons.find(note => note.id === id)
-  
-
-  if (person) {
-    response.json(person)
-  } else {
-    response.status(404).end()
-  }
+app.get('/api/persons/:id', (request, response, next) => {
+  Person.findById(request.params.id)
+    .then(person => {
+      if (person) {
+        response.json(person)
+      } else {
+        response.status(404).end()
+      }
+    })
+    .catch(error => next(error))
 })
 
 app.delete('/api/persons/:id', (request, response) => {
-  const id = Number(request.params.id)
-  persons = persons.filter(note => note.id !== id)
-
-  response.status(204).end()
+  Person.findByIdAndRemove(request.params.id)
+  .then(result => {
+      response.status(204).end()
+    })
+  .catch(error => next(error))
 })
-
-const generateId = () => {
-  const maxId = persons.length > 0
-    ? Math.max(...persons.map(n => n.id))
-    : 0
-    return maxId + 1
-}
 
 app.post('/api/persons', (request, response) => {
   const body = request.body
   console.log(body)
 
-  if(!body.name) {
-    return response.status(400).json({
-      error: 'content missing'
-    })
+  if(body.name === undefined){
+    return response.status(400).json({ error: 'content missing' })
   }
 
-  const person = {
-    id: generateId(),
+  const person = new Person({
     name: body.name,
     number: body.number,
-  }
-  persons = persons.concat(person)
-  console.log(persons)
-  response.json(person)
+  })
+
+  person.save().then(savedPerson => {
+    response.json(savedPerson)
+  })
 })
+
+const unknownEndpoint = (request, response)=> {
+  response.status(404).send({ error: 'unknown endpoint' })
+}
+
+app.use(unknownEndpoint)
+
+const errorHandler = (error, request, response, next) => {
+  console.error(error.message)
+
+  if (error.name === 'CastError') {
+    return response.status(400).send({ error: 'malformatted id' })
+  } 
+  next(error)
+}
+
+// this has to be the last loaded middleware.
+app.use(errorHandler)
 
 const PORT = process.env.PORT || 3001
 app.listen(PORT, () => {
